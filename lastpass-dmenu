@@ -14,10 +14,12 @@ read -r -d '' helpoutput <<EOF
       clipboard or has xdotool type it out for you.
 
   Options:
-    -n, --enable-notes
-        Enable the return of secure notes. When this option is set, this
-        script will try to return the secure note from a selection if the
-        password is not present. Default: disabled
+    -n, --notes
+        When this option is set, this script will try to return the secure note
+        from the selection instead of the password. Lastpass-cli itself does
+        not support "attached" notes, so only the actual note field is
+        returned.
+        Default: disabled
 
   Positional arguments:
     [copy|type]
@@ -31,9 +33,8 @@ read -r -d '' helpoutput <<EOF
     Have the script type out the password for you:
         ${0} type
 
-    Put the password into the clipboard OR if there is no password field for
-    the selection, try to copy any secure note attached to the selection:
-        ${0} --enable-notes copy
+    Copy any secure notes in the selection:
+        ${0} --notes copy
 
   Security
     Please make copy mode more secure by limiting X selection requests on the
@@ -60,11 +61,14 @@ fi
 for opt in "$@"; do
   shift
   case "${opt}" in
-    '--enable-notes') set -- "$@" '-n' ;;
-    '--help')          set -- "$@" '-h' ;;
-    *)                 set -- "$@" "${opt}" ;;
+    '--notes') set -- "$@" '-n' ;;
+    '--help')  set -- "$@" '-h' ;;
+    *)         set -- "$@" "${opt}" ;;
   esac
 done
+
+# Defaults
+lpass_field='password'
 
 # Back to the beginning now and get our opts
 OPTIND=1
@@ -75,7 +79,7 @@ while getopts ':nh' opt; do
       exit 0
       ;;
     n)
-      enable_notes=true
+      lpass_field='notes'
       ;;
     *)
       echo "Invalid option ${OPTARG}" >&2
@@ -122,30 +126,6 @@ if [ -z "${selid}" ]; then
   echo 'Nothing selected. Exiting.' >&2
   exit 0
 fi
-
-# Get the value for the  user's selection.
-# If a Password is present, return that. If not, try Notes.
-res_lines=( $(lpass show --all ${selid}) )
-lpass_field='password'
-for ((i=0; i<${#res_lines[@]}; i++)); do
-  line="${res_lines[i]}"
-  if [[ "${line}" == Password:* ]]; then
-    result=${line#Password: }
-    lpass_field='password'
-    break
-  fi
-  if ! [[ -v enable_notes ]]; then
-    # Skip trying to find notes if directed
-    continue
-  fi
-  if [[ "${line}" == Notes:* ]]; then
-    # Notes start on the next line of lpass output and can contain linebreaks.
-    # Capture into single string.
-    IFS=$'\n' result="${res_lines[*]:(( $i + 1 ))}"
-    lpass_field='note'
-    break
-  fi
-done
 
 if [ "${subcommand}" == 'type' ]; then
   lpass show "--${lpass_field}" "${selid}" | xdotool -
