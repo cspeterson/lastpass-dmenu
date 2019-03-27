@@ -89,8 +89,8 @@ while getopts ':nh' opt; do
   esac
 done
 
-shift $(( $OPTIND - 1 ))
-subcommand=("${1}")
+shift $(( OPTIND - 1 ))
+subcommand="${1}"
 if [ "${subcommand}" != 'type' ] && [ "${subcommand}" != 'copy' ]; then
   echo "Incorrect subcommand. Must be 'type' or 'copy'" >&2
   echo
@@ -112,6 +112,7 @@ IFS=$'\n' entries=($(lpass ls --long |
 
 if ! lpass status; then
   echo 'Lastpass-cli returning failed status.' <&2
+  # shellcheck disable=SC2016
   echo 'Please run `lpass login [your_username]`' >&2
   exit 1
 fi
@@ -131,5 +132,5 @@ if [ "${subcommand}" == 'type' ]; then
   lpass show "--${lpass_field}" "${selid}" | xdotool -
 else
   # Result to clipboard
-  lpass show --clip "--${lpass_field}" ${selid}
+  lpass show --clip "--${lpass_field}" "${selid}"
 fi
